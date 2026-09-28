@@ -34,7 +34,7 @@ Get the latest `.dmg` from [releases](https://github.com/ikoshura/NoSiri/release
 > **First launch:** this build is ad-hoc signed and not notarized, so macOS may say it's damaged. It isn't. Run this once:
 >
 > ```bash
-> /usr/bin/xattr -cr /Applications/Sajda.app
+> /usr/bin/xattr -cr /Applications/NoSiri.app
 > ```
 >
 > Then launch normally.
