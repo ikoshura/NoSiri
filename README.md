@@ -61,6 +61,3 @@ A terminal panel at the bottom shows the exact commands that ran and their outpu
 
 - macOS 14 or later
 - Swift toolchain or Command Line Tools (to build)
-
-
-One thing I left alone but you may want to fix: the `xattr` command points to `/Applications/Sajda.app`, which looks like a leftover from another project. It probably should be `/Applications/NoSiri.app`, otherwise anyone who runs it as written will hit an error.
