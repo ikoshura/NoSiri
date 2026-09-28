@@ -8,20 +8,54 @@ have to remember the terminal incantation again.
 
 ## Install
 
-Download the latest `.dmg` from [releases](https://github.com/ikoshura/NoSiri/releases),
-drag **NoSiri** into Applications, and launch it. The app is ad-hoc signed
-(notarization requires an Apple Developer account).
+### Recommended: build it yourself
 
-Or build it yourself:
+This is the best option, and it takes seconds. The app is one Swift file with no
+dependencies, so `swiftc` compiles it from source faster than you can download a
+disk image — and you get a binary you know the provenance of, since you watched
+it get built from the 505 lines sitting in this repo.
 
 ```bash
-./build.sh          # -> build/NoSiri.app and dist/NoSiri-<version>.dmg
+git clone https://github.com/ikoshura/NoSiri.git
+cd NoSiri && ./build.sh
 open build/NoSiri.app
 ```
 
-No Xcode project and no third-party dependencies — `build.sh` compiles the single
-Swift source with `swiftc`, renders the `.icns` from the iconset, ad-hoc signs the
-bundle, and packages the disk image.
+That's the whole thing. If you don't have the Swift toolchain yet, install the
+Command Line Tools with `xcode-select --install` and the first build takes a
+minute; every build after that is instant.
+
+### Or download the DMG
+
+Grab the latest `.dmg` from [releases](https://github.com/ikoshura/NoSiri/releases),
+drag **NoSiri** into Applications, and launch it.
+
+## First launch: "cannot be opened because it is not notarized"
+
+Expected, and harmless to fix. NoSiri has no Apple Developer account behind it,
+so `build.sh` signs it **ad-hoc** (`codesign --sign -`) instead of with a
+notarized Developer ID. Gatekeeper only trusts notarized apps by default, so on
+first open macOS will refuse it. Pick whichever of these suits you:
+
+**1. Right-click → Open** (easiest, no terminal)
+Open Finder, right-click `NoSiri.app` in Applications, choose **Open**, then
+**Open** again in the dialog. The exception is remembered for that copy only.
+
+**2. Clear the quarantine flag** (once, in Terminal)
+
+```bash
+xattr -dr com.apple.quarantine /Applications/NoSiri.app
+open /Applications/NoSiri.app
+```
+
+**3. Allow it system-wide**, if you'd rather not do it per copy:
+System Settings → Privacy & Security → scroll to the blocked section →
+**Open Anyway**. This appears only the first time, and only after you try to
+launch the app.
+
+Note that building it yourself (option 1 above) sidesteps all of this: an app you
+compile locally is never quarantined, since the flag is set only on files
+*downloaded* by a browser. No `xattr` gymnastics needed.
 
 ## What it does
 
