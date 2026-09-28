@@ -5,7 +5,6 @@
 # NoSiri
 
 [![macOS](https://img.shields.io/badge/macOS-14%2B-9cf2ff?logo=apple&logoColor=white)](https://www.apple.com/macos/)
-![Latest release](https://img.shields.io/github/v/release/ikoshura/NoSiri?label=download)
 
 </div>
 
