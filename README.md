@@ -25,22 +25,6 @@ cd NoSiri && ./build.sh
 open build/NoSiri.app
 ```
 
-The app is a single Swift file with no dependencies. If you don't have the Swift toolchain, run `xcode-select --install` first.
-
-**Or download the DMG**
-
-Get the latest `.dmg` from [releases](https://github.com/ikoshura/NoSiri/releases), drag NoSiri into Applications, and open it.
-
-> **First launch:** this build is ad-hoc signed and not notarized, so macOS may say it's damaged. It isn't. Run this once:
->
-> ```bash
-> /usr/bin/xattr -cr /Applications/NoSiri.app
-> ```
->
-> Then launch normally.
-
-Apps built locally are never quarantined, so building from source skips this step.
-
 ## What it does
 
 NoSiri manages the `NSAppleMenuAllowedItems` preference and then relaunches Finder so the change applies right away. No reboot or admin rights needed.
