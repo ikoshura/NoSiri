@@ -45,9 +45,24 @@ PY
   rm -rf "$(dirname "$STAGE")"
   trap - EXIT
 fi
-# Ad-hoc sign so macOS treats it as a stable app across rebuilds.
-codesign --force --sign - --timestamp=none "$APP" 2>/dev/null || \
-  codesign --force --sign - "$APP"
+# Sign for real when a Developer ID certificate is available, since Apple's
+# notary service rejects ad-hoc signatures outright. Ad-hoc is kept as a
+# fallback so a fresh clone still builds and runs locally.
+IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null \
+  | grep 'Developer ID Application' | head -1 \
+  | sed -E 's/.*"([^"]+)".*/\1/')"
+
+if [ -n "$IDENTITY" ]; then
+  # The hardened runtime is mandatory for notarization. The app only ever
+  # shells out to /usr/bin/defaults and /usr/bin/killall, so it needs no
+  # entitlements beyond the default set.
+  codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP"
+  echo "Signed: $IDENTITY"
+else
+  codesign --force --sign - --timestamp=none "$APP" 2>/dev/null || \
+    codesign --force --sign - "$APP"
+  echo "Signed: ad-hoc (no Developer ID found; NOT notarizable)"
+fi
 
 echo "Built $APP"
 echo "Run with: open $APP"
