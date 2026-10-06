@@ -19,8 +19,8 @@ A small macOS app that hides or restores the "Ask Siri" item in context menus, s
 **[Download the DMG](https://github.com/ikoshura/NoSiri/releases)**
 
 Open `NoSiri-1.0.dmg`, drag **NoSiri** into Applications, and launch it. The app is
-signed with a Developer ID certificate and notarized by Apple, so it opens cleanly —
-no Gatekeeper warnings, no right-click tricks.
+signed with a Developer ID certificate and notarized by Apple, so it opens cleanly,
+with no Gatekeeper warnings and no right-click tricks.
 
 **Or build from source**
 
