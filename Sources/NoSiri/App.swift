@@ -1,5 +1,24 @@
 import SwiftUI
 
+// MARK: - Motion
+//
+// Every animation in the app goes through here. One rule: use `smooth`
+// (a continuous, non-velocity-jumping curve) rather than `easeOut`, which
+// begins at full speed and therefore reads as a snap. Durations are long
+// enough that a mid-flight state change blends into the animation already
+// running instead of restarting it visibly.
+
+private enum Motion {
+    /// Layout shifts: the transcript appearing resizes the stack.
+    static let layout = Animation.smooth(duration: 0.38)
+    /// Rows appearing inside the transcript.
+    static let content = Animation.smooth(duration: 0.28)
+    /// Hover/press feedback, and the window's background wash.
+    static let subtle = Animation.smooth(duration: 0.22)
+    /// Autoscroll to the tail.
+    static let scroll = Animation.smooth(duration: 0.30)
+}
+
 // MARK: - Menu code allowlist
 
 /// Apple codes for the system menu items we want to keep visible.
@@ -214,8 +233,10 @@ final class Model: ObservableObject {
         // Always start from a clean slate: the transcript documents one action.
         // Clearing and logging happen in one main-actor turn, so the panel can
         // never be shown holding a stale run.
-        lines = [LogLine(text: action, kind: .heading)]
-        for row in command { lines.append(LogLine(text: "$ " + row, kind: .plain)) }
+        withAnimation(Motion.layout) {
+            lines = [LogLine(text: action, kind: .heading)]
+            for row in command { lines.append(LogLine(text: "$ " + row, kind: .plain)) }
+        }
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 try body().report(self)
@@ -245,9 +266,13 @@ final class Model: ObservableObject {
     fileprivate func log(_ text: String, kind: LogLine.Kind = .plain) {
         let line = LogLine(text: text, kind: kind)
         if Thread.isMainThread {
-            lines.append(line)
+            // Animated so the row's transition is actually driven; an unanimated
+            // append would drop the new row in with no fade.
+            withAnimation(Motion.content) { lines.append(line) }
         } else {
-            DispatchQueue.main.async { self.lines.append(line) }
+            DispatchQueue.main.async {
+                withAnimation(Motion.content) { self.lines.append(line) }
+            }
         }
     }
 }
@@ -313,7 +338,7 @@ struct HoverButtonStyle: ButtonStyle {
             )
             .contentShape(RoundedRectangle(cornerRadius: 6))
             .onHover { hovering = $0 }
-            .animation(.easeOut(duration: 0.12), value: hovering)
+            .animation(Motion.subtle, value: hovering)
     }
 }
 
@@ -341,10 +366,17 @@ struct TerminalPanel: View {
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .id(line.id)
+                            // New rows fade and rise slightly into place. Without
+                            // this they pop in on a single frame, which is what
+                            // makes a streaming transcript read as jumping.
+                            .transition(.opacity.combined(with: .move(edge: .top)))
                     }
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 6)
+                // Scoped to the rows only, so an appended line animates its own
+                // transition without the panel or the window reflowing around it.
+                .animation(Motion.content, value: lines.count)
             }
             // 108pt is roughly eight 10pt rows: the heading, the full wrapped
             // command and its output all stay visible without scrolling in the
@@ -363,7 +395,7 @@ struct TerminalPanel: View {
             )
             .onChange(of: lines.count) { _, _ in
                 guard followTail, let last = lines.last else { return }
-                withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(last.id, anchor: .bottom) }
+                withAnimation(Motion.scroll) { proxy.scrollTo(last.id, anchor: .bottom) }
             }
         }
     }
@@ -389,15 +421,22 @@ struct ContentView: View {
                 Spacer(minLength: 0)
                 statusIcon
                 Text(model.state.title).font(.title2.bold())
+                    // The title swaps wholesale between states; cross-fading the
+                    // glyphs avoids a hard one-frame cut.
+                    .contentTransition(.opacity)
                 Text(model.state.detail)
                     .font(.callout).foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: 380)
+                    .contentTransition(.opacity)
                 actions
                 if !model.lines.isEmpty {
                     TerminalPanel(lines: model.lines)
                         .frame(maxWidth: 380)
+                        // The panel is inserted above the bottom spacer, so it
+                        // grows the stack upward. Fading it while that happens
+                        // keeps the move from looking like the window "kicks".
                         .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
                 if let e = model.error {
@@ -405,6 +444,7 @@ struct ContentView: View {
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: 380)
+                        .transition(.opacity)
                 }
                 Spacer(minLength: 0)
             }
@@ -414,7 +454,12 @@ struct ContentView: View {
         // Symmetric 44pt insets: they clear the floating traffic lights and keep
         // the content optically centered in the window at any size.
         .padding(44)
-        .animation(.easeOut(duration: 0.2), value: model.lines.count)
+        // Animate only the transcript's own appearance, and only on the stack
+        // that actually reflows. This used to be a bare `.animation` on the
+        // whole body keyed on `lines.count`, which re-triggered on every single
+        // appended line and animated the background and icon along with it —
+        // the main source of the jumping.
+        .animation(Motion.layout, value: model.lines.isEmpty)
         .background(TranslucentBackground())
         // Frosted glass: the material blurs the desktop, and the window is
         // non-opaque so the blur actually shows through.
@@ -428,6 +473,9 @@ struct ContentView: View {
                     .opacity(0.32)
             }
         }
+        // Scoped to the wash and the icon only. Applying this to the whole
+        // subtree made the state change drag every layout change along too.
+        .animation(Motion.subtle, value: model.state)
     }
 
     /// Apple Intelligence mark from Resources, tinted by state. Loaded once and
@@ -479,11 +527,15 @@ struct ContentView: View {
 
     @ViewBuilder private var actions: some View {
         VStack(spacing: 10) {
+            // Swapping the primary button on a state change used to be an
+            // instant cut. Fading it keeps the control row from appearing
+            // to twitch when a patch is applied.
             if model.state.showApply {
                 Button("Apply Patch") { model.apply() }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
                     .disabled(model.busy)
+                    .transition(.opacity)
             }
             if model.state.showRevert {
                 Button("Restore Default") { model.revert() }
@@ -493,6 +545,7 @@ struct ContentView: View {
                     // accent is forced to the system secondary gray to stay readable on the wash.
                     .tint(model.state == .patched ? Color.secondary : .accentColor)
                     .disabled(model.busy)
+                    .transition(.opacity)
             }
             Button("Refresh") { model.refresh() }
                 .buttonStyle(HoverButtonStyle())
